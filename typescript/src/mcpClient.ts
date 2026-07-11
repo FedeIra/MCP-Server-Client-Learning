@@ -1,10 +1,13 @@
+import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import type {
-  Tool,
-  Prompt,
-  PromptMessage,
-  CallToolResult,
+import {
+  CallToolResultSchema,
+  type Tool,
+  type Prompt,
+  type PromptMessage,
+  type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 
 // The MCP client. This is the TypeScript equivalent of `mcp_client.py`.
@@ -41,16 +44,19 @@ export class MCPClient {
   }
 
   async listTools(): Promise<Tool[]> {
-    // TODO: Return a list of tools defined by the MCP server
-    return [];
+    const result = await this.getSession().listTools();
+    return result.tools;
   }
 
   async callTool(
     toolName: string,
     toolInput: Record<string, unknown>
   ): Promise<CallToolResult | null> {
-    // TODO: Call a particular tool and return the result
-    return null;
+    const result = await this.getSession().callTool(
+      { name: toolName, arguments: toolInput },
+      CallToolResultSchema
+    );
+    return result as CallToolResult;
   }
 
   async listPrompts(): Promise<Prompt[]> {
@@ -76,4 +82,31 @@ export class MCPClient {
     this.session = null;
     this.transport = null;
   }
+}
+
+// For testing
+async function main() {
+  // Spawns mcpServer.ts through the same Node binary using the tsx loader
+  // (equivalent to Python's `command="uv", args=["run", "mcp_server.py"]`).
+  const serverPath = fileURLToPath(new URL("./mcpServer.ts", import.meta.url));
+  const client = new MCPClient(process.execPath, ["--import", "tsx", serverPath]);
+
+  await client.connect();
+  try {
+    const result = await client.listTools();
+    console.log(result);
+  } finally {
+    await client.cleanup();
+  }
+}
+
+const isMainModule =
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === process.argv[1];
+
+if (isMainModule) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 }
