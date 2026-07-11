@@ -60,16 +60,19 @@ export class MCPClient {
   }
 
   async listPrompts(): Promise<Prompt[]> {
-    // TODO: Return a list of prompts defined by the MCP server
-    return [];
+    const result = await this.getSession().listPrompts();
+    return result.prompts;
   }
 
   async getPrompt(
     promptName: string,
     args: Record<string, string>
   ): Promise<PromptMessage[]> {
-    // TODO: Get a particular prompt defined by the MCP server
-    return [];
+    const result = await this.getSession().getPrompt({
+      name: promptName,
+      arguments: args,
+    });
+    return result.messages;
   }
 
   async readResource(uri: string): Promise<any> {
