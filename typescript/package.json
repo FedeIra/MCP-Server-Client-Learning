@@ -1,0 +1,22 @@
+{
+  "name": "mcp-chat-ts",
+  "version": "0.1.0",
+  "description": "MCP Chat CLI (TypeScript port) - parallel to the Python project",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "dotenv": "^17.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

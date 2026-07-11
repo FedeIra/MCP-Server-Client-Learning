@@ -1,17 +1,10 @@
-Metadata-Version: 2.4
-Name: app
-Version: 0.1.0
-Summary: Add your description here
-Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-Requires-Dist: anthropic>=0.51.0
-Requires-Dist: mcp[cli]>=1.8.0
-Requires-Dist: prompt-toolkit>=3.0.51
-Requires-Dist: python-dotenv>=1.1.0
-
 # MCP Chat
 
 MCP Chat is a command-line interface application that enables interactive chat capabilities with AI models through the Anthropic API. The application supports document retrieval, command-based prompts, and extensible tool integrations via the MCP (Model Control Protocol) architecture.
+
+> This is the **Python** version. A parallel **TypeScript** port lives in [`../typescript`](../typescript). See the [repository root README](../README.md) for an overview of both.
+>
+> **On Windows / PowerShell**, activate the virtual environment with `.venv\Scripts\activate` (not `source .venv/bin/activate`), and run all commands below from inside this `python/` folder.
 
 ## Prerequisites
 

@@ -1,111 +1,64 @@
-# MCP Chat
+# MCP Server & Client — Learning
 
-MCP Chat is a command-line interface application that enables interactive chat capabilities with AI models through the Anthropic API. The application supports document retrieval, command-based prompts, and extensible tool integrations via the MCP (Model Control Protocol) architecture.
+A learning project that implements the **same** MCP (Model Context Protocol) chat
+application in two languages, side by side, using each language's **official MCP
+SDK** (no higher-level framework). The goal is to learn MCP by building — and
+comparing — the same design in both ecosystems.
 
-## Prerequisites
+Both versions are intentionally left with the same unfinished `TODO`s, so you can
+implement the MCP tools / resources / prompts yourself in each language.
 
-- Python 3.9+
-- Anthropic API Key
-
-## Setup
-
-### Step 1: Configure the environment variables
-
-1. Create or edit the `.env` file in the project root and verify that the following variables are set correctly:
+## Structure
 
 ```
-ANTHROPIC_API_KEY=""  # Enter your Anthropic API secret key
+.
+├── python/       # Python version  (mcp SDK + anthropic, managed with uv)
+└── typescript/   # TypeScript port (@modelcontextprotocol/sdk + @anthropic-ai/sdk)
 ```
 
-### Step 2: Install dependencies
+Each folder is a self-contained project with its own dependencies, its own `.env`,
+and its own README:
 
-#### Option 1: Setup with uv (Recommended)
+- **[python/](python/README.md)** — run with [`uv`](https://github.com/astral-sh/uv).
+- **[typescript/](typescript/README.md)** — run with `npm` (Node 18+).
 
-[uv](https://github.com/astral-sh/uv) is a fast Python package installer and resolver.
+## What the app does
 
-1. Install uv, if not already installed:
+A command-line chat that connects Claude to documents exposed by an MCP server:
+
+- **Chat** — plain messages to the model.
+- **`@document`** — include a document's contents in your query.
+- **`/command`** — run a prompt defined by the MCP server.
+
+The client launches the MCP server as a subprocess and talks to it over **stdio**.
+
+## Quick start
+
+Pick a language and follow its README. In short:
 
 ```bash
-pip install uv
-```
-
-2. Create and activate a virtual environment:
-
-```bash
+# Python
+cd python
 uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
-
-3. Install dependencies:
-
-```bash
+.venv\Scripts\activate      # Windows PowerShell (use source .venv/bin/activate on macOS/Linux)
 uv pip install -e .
-```
-
-4. Run the project
-
-```bash
 uv run main.py
+
+# TypeScript
+cd typescript
+npm install
+npm run dev
 ```
 
-#### Option 2: Setup without uv
+Both need an `ANTHROPIC_API_KEY` in their respective `.env` file.
 
-1. Create and activate a virtual environment:
+## The learning exercise (shared TODOs)
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
+Implement, in each language:
 
-2. Install dependencies:
-
-```bash
-pip install anthropic python-dotenv prompt-toolkit "mcp[cli]==1.8.0"
-```
-
-3. Run the project
-
-```bash
-python main.py
-```
-
-## Usage
-
-### Basic Interaction
-
-Simply type your message and press Enter to chat with the model.
-
-### Document Retrieval
-
-Use the @ symbol followed by a document ID to include document content in your query:
-
-```
-> Tell me about @deposition.md
-```
-
-### Commands
-
-Use the / prefix to execute commands defined in the MCP server:
-
-```
-> /summarize deposition.md
-```
-
-Commands will auto-complete when you press Tab.
-
-## Development
-
-### Adding New Documents
-
-Edit the `mcp_server.py` file to add new documents to the `docs` dictionary.
-
-### Implementing MCP Features
-
-To fully implement the MCP features:
-
-1. Complete the TODOs in `mcp_server.py`
-2. Implement the missing functionality in `mcp_client.py`
-
-### Linting and Typing Check
-
-There are no lint or type checks implemented.
+1. A tool to read a doc
+2. A tool to edit a doc
+3. A resource to return all doc ids
+4. A resource to return the contents of a particular doc
+5. A prompt to rewrite a doc in markdown format
+6. A prompt to summarize a doc

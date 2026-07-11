@@ -1,4 +1,14 @@
+# Secrets
 .env
+
+# Python
 __pycache__
 .venv
+*.egg-info
+
+# Node / TypeScript
+node_modules
+dist
+
+# OS
 .DS_Store
