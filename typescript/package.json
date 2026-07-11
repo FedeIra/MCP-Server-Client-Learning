@@ -6,17 +6,25 @@
   "scripts": {
     "dev": "tsx src/main.ts",
     "build": "tsc",
-    "start": "node dist/main.js"
+    "start": "node dist/main.js",
+    "lint": "eslint .",
+    "inspector": "mcp-inspector node --import tsx src/mcpServer.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
     "@modelcontextprotocol/sdk": "^1.20.0",
     "dotenv": "^17.0.0",
+    "terminal-kit": "^3.1.3",
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/inspector": "^0.22.0",
     "@types/node": "^22.0.0",
+    "@types/terminal-kit": "^2.5.7",
+    "eslint": "^10.7.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.63.0"
   }
 }

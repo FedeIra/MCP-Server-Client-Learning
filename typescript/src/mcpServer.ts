@@ -1,4 +1,7 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  McpServer,
+  ResourceTemplate,
+} from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
@@ -61,10 +64,81 @@ mcp.registerTool(
   }
 );
 
-// TODO: Write a resource to return all doc id's            -> mcp.registerResource(...)
-// TODO: Write a resource to return the contents of a doc   -> mcp.registerResource(...)
-// TODO: Write a prompt to rewrite a doc in markdown format -> mcp.registerPrompt(...)
-// TODO: Write a prompt to summarize a doc                  -> mcp.registerPrompt(...)
+// Resource to return list of documents:
+mcp.registerResource(
+  "list_docs",
+  "docs://documents",
+  { mimeType: "application/json" },
+  async (uri) => ({
+    contents: [
+      {
+        uri: uri.href,
+        mimeType: "application/json",
+        text: JSON.stringify(Object.keys(docs)),
+      },
+    ],
+  })
+);
+
+// Resource to return content of document:
+mcp.registerResource(
+  "fetch_doc",
+  new ResourceTemplate("docs://documents/{doc_id}", { list: undefined }),
+  { mimeType: "text/plain" },
+  async (uri, variables) => {
+    const doc_id = Array.isArray(variables.doc_id)
+      ? variables.doc_id[0]
+      : variables.doc_id;
+
+    if (!(doc_id in docs)) {
+      throw new Error(`Doc with id ${doc_id} not found`);
+    }
+
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "text/plain",
+          text: docs[doc_id],
+        },
+      ],
+    };
+  }
+);
+
+// Prompt to rewrite a doc in markdown format:
+mcp.registerPrompt(
+  "format",
+  {
+    description: "Rewrites the contents of the document in Markdown format",
+    argsSchema: {
+      doc_id: z.string().describe("Id of the document to format"),
+    },
+  },
+  ({ doc_id }) => {
+    const prompt = `
+    Your goal is to reformat a document to be written with markdown syntax.
+    The id of the document you need to reformat is:
+    <document_id>
+    ${doc_id}
+    </document_id>
+
+    Add in headers, bullet points, tables, etc as necessary. Feel free to add extra text, but don't change the meaning of the report.
+    Use the 'edit_document' tool to edit the document. After the document has been edited, respond with the final version of the doc. Don't explain your changes.
+    `;
+
+    return {
+      messages: [
+        {
+          role: "user",
+          content: { type: "text", text: prompt },
+        },
+      ],
+    };
+  }
+);
+
+// TODO: Write a prompt to summarize a doc -> mcp.registerPrompt(...)
 
 async function main() {
   const transport = new StdioServerTransport();

@@ -73,8 +73,17 @@ export class MCPClient {
   }
 
   async readResource(uri: string): Promise<any> {
-    // TODO: Read a resource, parse the contents and return it
-    return [];
+    const result = await this.getSession().readResource({ uri });
+    const resource = result.contents[0];
+
+    if (resource && "text" in resource) {
+      if (resource.mimeType === "application/json") {
+        return JSON.parse(resource.text);
+      }
+      return resource.text;
+    }
+
+    return null;
   }
 
   async cleanup(): Promise<void> {
