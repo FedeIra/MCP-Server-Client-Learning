@@ -6,6 +6,7 @@ import type {
 } from "@anthropic-ai/sdk/resources/messages";
 import type { TextContent } from "@modelcontextprotocol/sdk/types.js";
 import { MCPClient } from "../mcpClient.js";
+import { progressCallback } from "./observability.js";
 
 // Discovers and executes tools across MCP clients. Equivalent to `core/tools.py`.
 export class ToolManager {
@@ -83,7 +84,11 @@ export class ToolManager {
       }
 
       try {
-        const toolOutput = await client.callTool(toolName, toolInput);
+        const toolOutput = await client.callTool(
+          toolName,
+          toolInput,
+          progressCallback
+        );
         const items = toolOutput ? toolOutput.content : [];
         const contentList = items
           .filter((item) => item.type === "text")

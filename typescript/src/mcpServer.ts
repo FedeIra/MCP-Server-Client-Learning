@@ -1,12 +1,39 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   McpServer,
   ResourceTemplate,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { makeToolContext } from "./core/toolContext.js";
 
 // The MCP server. This is the TypeScript equivalent of `mcp_server.py`.
-const mcp = new McpServer({ name: "DocumentMCP", version: "1.0.0" });
+// `logging: {}` must be declared explicitly for `sendLoggingMessage` to work —
+// otherwise the SDK silently no-ops instead of sending the notification.
+const mcp = new McpServer(
+  { name: "DocumentMCP", version: "1.0.0" },
+  { capabilities: { logging: {} } }
+);
+
+// Checks whether a filesystem path falls within one of the client's roots.
+// Equivalent to `is_path_allowed` in `mcp_server.py`.
+async function isPathAllowed(requestedPath: string): Promise<boolean> {
+  if (!fs.existsSync(requestedPath)) return false;
+
+  const dirPath = fs.statSync(requestedPath).isFile()
+    ? path.dirname(requestedPath)
+    : requestedPath;
+  const resolvedDir = path.resolve(dirPath);
+
+  const { roots } = await mcp.server.listRoots();
+  return roots.some((root) => {
+    const rootPath = path.resolve(fileURLToPath(root.uri));
+    const relative = path.relative(rootPath, resolvedDir);
+    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  });
+}
 
 const docs: Record<string, string> = {
   "deposition.md": "This deposition covers the testimony of Angela Smith, P.E.",
@@ -29,10 +56,17 @@ mcp.registerTool(
       doc_id: z.string().describe("Id of the document to read"),
     },
   },
-  async ({ doc_id }) => {
+  async ({ doc_id }, extra) => {
+    const ctx = makeToolContext(mcp, extra);
+
+    await ctx.info(`Reading document '${doc_id}'`);
+    await ctx.reportProgress(50, 100);
+
     if (!(doc_id in docs)) {
       throw new Error(`Doc with id ${doc_id} not found`);
     }
+
+    await ctx.reportProgress(100, 100);
     return { content: [{ type: "text", text: docs[doc_id] }] };
   }
 );
@@ -55,11 +89,18 @@ mcp.registerTool(
         .describe("The new text to insert in place of the old text"),
     },
   },
-  async ({ doc_id, old_str, new_str }) => {
+  async ({ doc_id, old_str, new_str }, extra) => {
+    const ctx = makeToolContext(mcp, extra);
+
+    await ctx.info(`Editing document '${doc_id}'`);
+    await ctx.reportProgress(20, 100);
+
     if (!(doc_id in docs)) {
       throw new Error(`Doc with id ${doc_id} not found`);
     }
     docs[doc_id] = docs[doc_id].replace(old_str, new_str);
+
+    await ctx.reportProgress(100, 100);
     return { content: [{ type: "text", text: `Edited ${doc_id}` }] };
   }
 );
@@ -138,7 +179,80 @@ mcp.registerPrompt(
   }
 );
 
-// TODO: Write a prompt to summarize a doc -> mcp.registerPrompt(...)
+// Tool to summarize arbitrary text via sampling (the server asks the
+// connected client's LLM to do the work). Equivalent to `summarize` in
+// `mcp_server.py`.
+mcp.registerTool(
+  "summarize",
+  {
+    description: "Summarize the provided text using the client's LLM",
+    inputSchema: {
+      text_to_summarize: z.string().describe("The text to summarize"),
+    },
+  },
+  async ({ text_to_summarize }, extra) => {
+    const ctx = makeToolContext(mcp, extra);
+
+    await ctx.info("Preparing to summarize...");
+    await ctx.reportProgress(20, 100);
+
+    const prompt = `
+    Please summarize the following text:
+    ${text_to_summarize}
+    `;
+
+    const result = await mcp.server.createMessage({
+      messages: [{ role: "user", content: { type: "text", text: prompt } }],
+      maxTokens: 4000,
+      systemPrompt: "You are a helpful research assistant.",
+    });
+
+    await ctx.info("Summary received");
+    await ctx.reportProgress(90, 100);
+
+    if (result.content.type !== "text") {
+      throw new Error("Sampling failed");
+    }
+
+    await ctx.reportProgress(100, 100);
+    return { content: [{ type: "text", text: result.content.text }] };
+  }
+);
+
+// Tool to list the directories the client exposes as roots:
+mcp.registerTool(
+  "list_roots",
+  {
+    description:
+      "List all directories that are accessible to this server. These are the root directories where files can be read from or written to.",
+  },
+  async () => {
+    const { roots } = await mcp.server.listRoots();
+    const paths = roots.map((root) => fileURLToPath(root.uri));
+    return { content: [{ type: "text", text: JSON.stringify(paths) }] };
+  }
+);
+
+// Tool to read a directory, restricted to the client's roots:
+mcp.registerTool(
+  "read_dir",
+  {
+    description: "Read directory contents. Path must be within one of the client's roots.",
+    inputSchema: {
+      path: z.string().describe("Path to a directory to read"),
+    },
+  },
+  async ({ path: dirPath }) => {
+    const resolved = path.resolve(dirPath);
+
+    if (!(await isPathAllowed(resolved))) {
+      throw new Error("Error: can only read directories within a root");
+    }
+
+    const entries = fs.readdirSync(resolved);
+    return { content: [{ type: "text", text: JSON.stringify(entries) }] };
+  }
+);
 
 async function main() {
   const transport = new StdioServerTransport();

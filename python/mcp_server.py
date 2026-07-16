@@ -1,8 +1,35 @@
-from mcp.server.fastmcp import FastMCP
+from pathlib import Path
+
+from mcp.server.fastmcp import FastMCP, Context
 from pydantic import Field
 from mcp.server.fastmcp.prompts import base
+from mcp.types import SamplingMessage, TextContent
+
+from core.utils import file_url_to_path
 
 mcp = FastMCP("DocumentMCP", log_level="ERROR")
+
+
+async def is_path_allowed(requested_path: Path, ctx: Context) -> bool:
+    """Checks whether a filesystem path falls within one of the client's roots."""
+    roots_result = await ctx.session.list_roots()
+    client_roots = roots_result.roots
+
+    if not requested_path.exists():
+        return False
+
+    if requested_path.is_file():
+        requested_path = requested_path.parent
+
+    for root in client_roots:
+        root_path = file_url_to_path(root.uri)
+        try:
+            requested_path.relative_to(root_path)
+            return True
+        except ValueError:
+            continue
+
+    return False
 
 
 docs = {
@@ -19,11 +46,17 @@ docs = {
     name="read_document",
     description="Read a document's contents by id",
 )
-def read_document(
-    doc_id: str = Field(description="Id of the document to read")
+async def read_document(
+    ctx: Context,
+    doc_id: str = Field(description="Id of the document to read"),
 ):
+    await ctx.info(f"Reading document '{doc_id}'")
+    await ctx.report_progress(50, 100)
+
     if doc_id not in docs:
         raise ValueError(f"Doc with id {doc_id} not found")
+
+    await ctx.report_progress(100, 100)
     return docs[doc_id]
 
 
@@ -32,15 +65,21 @@ def read_document(
     name="edit_document",
     description="Edit a document by replacing a string in the document content with a new string"
 )
-def edit_document(
+async def edit_document(
+    ctx: Context,
     doc_id: str = Field(description="Id of the document that will be edited"),
     old_str: str = Field(description="The text to replace. Must match exactly, including whitespace"),
     new_str: str = Field(description="The new text to insert in place of the old text"),
 ):
+    await ctx.info(f"Editing document '{doc_id}'")
+    await ctx.report_progress(20, 100)
+
     if doc_id not in docs:
         raise ValueError(f"Doc with id {doc_id} not found")
 
     docs[doc_id] = docs[doc_id].replace(old_str, new_str)
+
+    await ctx.report_progress(100, 100)
     return f"Edited {doc_id}"
 
 # Resource to return list of documents:
@@ -85,6 +124,59 @@ def format_document(
 
 
 # TODO: Write a prompt to summarize a doc
+@mcp.tool()
+async def summarize(text_to_summarize: str, ctx: Context):
+    await ctx.info("Preparing to summarize...")
+    await ctx.report_progress(20, 100)
+
+    prompt = f"""
+        Please summarize the following text:
+        {text_to_summarize}
+    """
+
+    result = await ctx.session.create_message(
+        messages=[
+            SamplingMessage(
+                role="user", content=TextContent(type="text", text=prompt)
+            )
+        ],
+        max_tokens=4000,
+        system_prompt="You are a helpful research assistant.",
+    )
+
+    await ctx.info("Summary received")
+    await ctx.report_progress(90, 100)
+
+    if result.content.type == "text":
+        await ctx.report_progress(100, 100)
+        return result.content.text
+    else:
+        raise ValueError("Sampling failed")
+
+
+# Tool to list the directories the client exposes as roots:
+@mcp.tool()
+async def list_roots(ctx: Context):
+    """List all directories that are accessible to this server.
+    These are the root directories where files can be read from or written to.
+    """
+    roots_result = await ctx.session.list_roots()
+    return [str(file_url_to_path(root.uri)) for root in roots_result.roots]
+
+
+# Tool to read a directory, restricted to the client's roots:
+@mcp.tool()
+async def read_dir(
+    ctx: Context,
+    path: str = Field(description="Path to a directory to read"),
+):
+    """Read directory contents. Path must be within one of the client's roots."""
+    requested_path = Path(path).resolve()
+
+    if not await is_path_allowed(requested_path, ctx):
+        raise ValueError("Error: can only read directories within a root")
+
+    return [entry.name for entry in requested_path.iterdir()]
 
 
 if __name__ == "__main__":

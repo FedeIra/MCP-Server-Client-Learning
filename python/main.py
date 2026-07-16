@@ -6,6 +6,8 @@ from contextlib import AsyncExitStack
 
 from mcp_client import MCPClient
 from core.claude import Claude
+from core.sampling import make_sampling_callback
+from core.observability import logging_callback
 
 from core.cli_chat import CliChat
 from core.cli import CliApp
@@ -25,6 +27,7 @@ assert anthropic_api_key, (
 
 async def main():
     claude_service = Claude(model=claude_model)
+    sampling_callback = make_sampling_callback(claude_service)
 
     server_scripts = sys.argv[1:]
     clients = {}
@@ -35,16 +38,35 @@ async def main():
         else ("python", ["mcp_server.py"])
     )
 
+    # Directories exposed to the server via roots (for the `list_roots` /
+    # `read_dir` tools). Override with a comma-separated MCP_ROOT_DIRS env var;
+    # defaults to this project's own directory.
+    root_dirs_env = os.getenv("MCP_ROOT_DIRS", "")
+    root_paths = [p.strip() for p in root_dirs_env.split(",") if p.strip()] or [
+        os.path.dirname(os.path.abspath(__file__))
+    ]
+
     async with AsyncExitStack() as stack:
         doc_client = await stack.enter_async_context(
-            MCPClient(command=command, args=args)
+            MCPClient(
+                command=command,
+                args=args,
+                sampling_callback=sampling_callback,
+                logging_callback=logging_callback,
+                roots=root_paths,
+            )
         )
         clients["doc_client"] = doc_client
 
         for i, server_script in enumerate(server_scripts):
             client_id = f"client_{i}_{server_script}"
             client = await stack.enter_async_context(
-                MCPClient(command="uv", args=["run", server_script])
+                MCPClient(
+                    command="uv",
+                    args=["run", server_script],
+                    sampling_callback=sampling_callback,
+                    logging_callback=logging_callback,
+                )
             )
             clients[client_id] = client
 

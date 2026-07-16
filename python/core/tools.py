@@ -3,6 +3,7 @@ from typing import Optional, Literal, List
 from mcp.types import CallToolResult, Tool, TextContent
 from mcp_client import MCPClient
 from anthropic.types import Message, ToolResultBlockParam
+from core.observability import progress_callback
 
 
 class ToolManager:
@@ -76,7 +77,7 @@ class ToolManager:
 
             try:
                 tool_output: CallToolResult | None = await client.call_tool(
-                    tool_name, tool_input
+                    tool_name, tool_input, progress_callback=progress_callback
                 )
                 items = []
                 if tool_output:

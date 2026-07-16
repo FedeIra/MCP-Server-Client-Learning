@@ -39,10 +39,11 @@ class Claude:
         tools=None,
         thinking=False,
         thinking_budget=1024,
+        max_tokens=8000,
     ) -> Message:
         params = {
             "model": self.model,
-            "max_tokens": 8000,
+            "max_tokens": max_tokens,
             "messages": messages,
             "temperature": temperature,
             "stop_sequences": stop_sequences,
