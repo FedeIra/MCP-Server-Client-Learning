@@ -17,6 +17,10 @@ export class Claude {
     this.model = model;
   }
 
+  getModel(): string {
+    return this.model;
+  }
+
   addUserMessage(messages: MessageParam[], message: Message | unknown): void {
     messages.push({ role: "user", content: this.contentOf(message) });
   }

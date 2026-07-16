@@ -1,27 +1,68 @@
+import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import type { ProgressCallback } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import {
   CallToolResultSchema,
+  CreateMessageRequestSchema,
+  ListRootsRequestSchema,
+  LoggingMessageNotificationSchema,
+  type ClientCapabilities,
   type Tool,
   type Prompt,
   type PromptMessage,
   type CallToolResult,
+  type CreateMessageRequest,
+  type CreateMessageResult,
+  type LoggingMessageNotification,
+  type Root,
 } from "@modelcontextprotocol/sdk/types.js";
+
+export type SamplingHandler = (
+  request: CreateMessageRequest
+) => Promise<CreateMessageResult>;
+
+export type LoggingHandler = (notification: LoggingMessageNotification) => void;
+
+// Converts path strings to Root objects. Equivalent to `_create_roots` in
+// `mcp_client.py`.
+function createRoots(rootPaths: string[]): Root[] {
+  return rootPaths.map((rootPath) => {
+    const resolved = path.resolve(rootPath);
+    return {
+      uri: pathToFileURL(resolved).href,
+      name: path.basename(resolved) || "Root",
+    };
+  });
+}
 
 // The MCP client. This is the TypeScript equivalent of `mcp_client.py`.
 export class MCPClient {
   private command: string;
   private args: string[];
   private env?: Record<string, string>;
+  private samplingHandler?: SamplingHandler;
+  private loggingHandler?: LoggingHandler;
+  private roots: Root[];
   private session: Client | null = null;
   private transport: StdioClientTransport | null = null;
 
-  constructor(command: string, args: string[], env?: Record<string, string>) {
+  constructor(
+    command: string,
+    args: string[],
+    env?: Record<string, string>,
+    samplingHandler?: SamplingHandler,
+    loggingHandler?: LoggingHandler,
+    roots?: string[]
+  ) {
     this.command = command;
     this.args = args;
     this.env = env;
+    this.samplingHandler = samplingHandler;
+    this.loggingHandler = loggingHandler;
+    this.roots = roots ? createRoots(roots) : [];
   }
 
   async connect(): Promise<void> {
@@ -30,7 +71,39 @@ export class MCPClient {
       args: this.args,
       env: this.env,
     });
-    this.session = new Client({ name: "mcp-chat-ts", version: "1.0.0" });
+
+    const capabilities: ClientCapabilities = {};
+    if (this.samplingHandler) capabilities.sampling = {};
+    if (this.roots.length > 0) capabilities.roots = {};
+
+    this.session = new Client(
+      { name: "mcp-chat-ts", version: "1.0.0" },
+      Object.keys(capabilities).length > 0 ? { capabilities } : undefined
+    );
+
+    if (this.samplingHandler) {
+      this.session.setRequestHandler(
+        CreateMessageRequestSchema,
+        this.samplingHandler
+      );
+    }
+
+    if (this.loggingHandler) {
+      this.session.setNotificationHandler(
+        LoggingMessageNotificationSchema,
+        (notification) => {
+          this.loggingHandler?.(notification);
+        }
+      );
+    }
+
+    if (this.roots.length > 0) {
+      const roots = this.roots;
+      this.session.setRequestHandler(ListRootsRequestSchema, async () => ({
+        roots,
+      }));
+    }
+
     await this.session.connect(this.transport);
   }
 
@@ -50,11 +123,13 @@ export class MCPClient {
 
   async callTool(
     toolName: string,
-    toolInput: Record<string, unknown>
+    toolInput: Record<string, unknown>,
+    onProgress?: ProgressCallback
   ): Promise<CallToolResult | null> {
     const result = await this.getSession().callTool(
       { name: toolName, arguments: toolInput },
-      CallToolResultSchema
+      CallToolResultSchema,
+      onProgress ? { onprogress: onProgress } : undefined
     );
     return result as CallToolResult;
   }
