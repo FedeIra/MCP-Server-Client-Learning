@@ -1,9 +1,12 @@
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import type { ProgressCallback } from "@modelcontextprotocol/sdk/shared/protocol.js";
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+// import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+// --- STREAMABLE HTTP transport ---
+// Uncomment to switch (also comment out the StdioClientTransport import above).
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import type { ProgressCallback } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import {
   CallToolResultSchema,
   CreateMessageRequestSchema,
@@ -18,10 +21,10 @@ import {
   type CreateMessageResult,
   type LoggingMessageNotification,
   type Root,
-} from "@modelcontextprotocol/sdk/types.js";
+} from '@modelcontextprotocol/sdk/types.js';
 
 export type SamplingHandler = (
-  request: CreateMessageRequest
+  request: CreateMessageRequest,
 ) => Promise<CreateMessageResult>;
 
 export type LoggingHandler = (notification: LoggingMessageNotification) => void;
@@ -33,7 +36,7 @@ function createRoots(rootPaths: string[]): Root[] {
     const resolved = path.resolve(rootPath);
     return {
       uri: pathToFileURL(resolved).href,
-      name: path.basename(resolved) || "Root",
+      name: path.basename(resolved) || 'Root',
     };
   });
 }
@@ -47,7 +50,11 @@ export class MCPClient {
   private loggingHandler?: LoggingHandler;
   private roots: Root[];
   private session: Client | null = null;
-  private transport: StdioClientTransport | null = null;
+  // --- STDIO transport (default) ---
+  // private transport: StdioClientTransport | null = null;
+  // --- STREAMABLE HTTP transport ---
+  // Comment out the line above and uncomment the line below to switch.
+  private transport: StreamableHTTPClientTransport | null = null;
 
   constructor(
     command: string,
@@ -55,7 +62,7 @@ export class MCPClient {
     env?: Record<string, string>,
     samplingHandler?: SamplingHandler,
     loggingHandler?: LoggingHandler,
-    roots?: string[]
+    roots?: string[],
   ) {
     this.command = command;
     this.args = args;
@@ -66,25 +73,34 @@ export class MCPClient {
   }
 
   async connect(): Promise<void> {
-    this.transport = new StdioClientTransport({
-      command: this.command,
-      args: this.args,
-      env: this.env,
-    });
+    // --- STDIO transport (default) ---
+    // this.transport = new StdioClientTransport({
+    //   command: this.command,
+    //   args: this.args,
+    //   env: this.env,
+    // });
+
+    // --- STREAMABLE HTTP transport ---
+    // Comment out the block above and uncomment the line below to switch.
+    // Requires the server to be running with the streamable HTTP block
+    // (see mcpServer.ts) and reachable at this URL.
+    this.transport = new StreamableHTTPClientTransport(
+      new URL('http://127.0.0.1:3000/mcp'),
+    );
 
     const capabilities: ClientCapabilities = {};
     if (this.samplingHandler) capabilities.sampling = {};
     if (this.roots.length > 0) capabilities.roots = {};
 
     this.session = new Client(
-      { name: "mcp-chat-ts", version: "1.0.0" },
-      Object.keys(capabilities).length > 0 ? { capabilities } : undefined
+      { name: 'mcp-chat-ts', version: '1.0.0' },
+      Object.keys(capabilities).length > 0 ? { capabilities } : undefined,
     );
 
     if (this.samplingHandler) {
       this.session.setRequestHandler(
         CreateMessageRequestSchema,
-        this.samplingHandler
+        this.samplingHandler,
       );
     }
 
@@ -93,7 +109,7 @@ export class MCPClient {
         LoggingMessageNotificationSchema,
         (notification) => {
           this.loggingHandler?.(notification);
-        }
+        },
       );
     }
 
@@ -109,9 +125,7 @@ export class MCPClient {
 
   getSession(): Client {
     if (this.session === null) {
-      throw new Error(
-        "Client session not initialized. Call connect() first."
-      );
+      throw new Error('Client session not initialized. Call connect() first.');
     }
     return this.session;
   }
@@ -124,12 +138,12 @@ export class MCPClient {
   async callTool(
     toolName: string,
     toolInput: Record<string, unknown>,
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
   ): Promise<CallToolResult | null> {
     const result = await this.getSession().callTool(
       { name: toolName, arguments: toolInput },
       CallToolResultSchema,
-      onProgress ? { onprogress: onProgress } : undefined
+      onProgress ? { onprogress: onProgress } : undefined,
     );
     return result as CallToolResult;
   }
@@ -141,7 +155,7 @@ export class MCPClient {
 
   async getPrompt(
     promptName: string,
-    args: Record<string, string>
+    args: Record<string, string>,
   ): Promise<PromptMessage[]> {
     const result = await this.getSession().getPrompt({
       name: promptName,
@@ -150,12 +164,12 @@ export class MCPClient {
     return result.messages;
   }
 
-  async readResource(uri: string): Promise<any> {
+  async readResource(uri: string): Promise<unknown> {
     const result = await this.getSession().readResource({ uri });
     const resource = result.contents[0];
 
-    if (resource && "text" in resource) {
-      if (resource.mimeType === "application/json") {
+    if (resource && 'text' in resource) {
+      if (resource.mimeType === 'application/json') {
         return JSON.parse(resource.text);
       }
       return resource.text;
@@ -175,8 +189,12 @@ export class MCPClient {
 async function main() {
   // Spawns mcpServer.ts through the same Node binary using the tsx loader
   // (equivalent to Python's `command="uv", args=["run", "mcp_server.py"]`).
-  const serverPath = fileURLToPath(new URL("./mcpServer.ts", import.meta.url));
-  const client = new MCPClient(process.execPath, ["--import", "tsx", serverPath]);
+  const serverPath = fileURLToPath(new URL('./mcpServer.ts', import.meta.url));
+  const client = new MCPClient(process.execPath, [
+    '--import',
+    'tsx',
+    serverPath,
+  ]);
 
   await client.connect();
   try {
