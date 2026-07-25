@@ -1,20 +1,25 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   McpServer,
   ResourceTemplate,
-} from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
-import { makeToolContext } from "./core/toolContext.js";
+} from '@modelcontextprotocol/sdk/server/mcp.js';
+// import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+// --- STREAMABLE HTTP transport ---
+// Uncomment to switch (also comment out the StdioServerTransport import above).
+import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { z } from 'zod';
+import { makeToolContext } from './core/toolContext.js';
 
 // The MCP server. This is the TypeScript equivalent of `mcp_server.py`.
 // `logging: {}` must be declared explicitly for `sendLoggingMessage` to work —
 // otherwise the SDK silently no-ops instead of sending the notification.
 const mcp = new McpServer(
-  { name: "DocumentMCP", version: "1.0.0" },
-  { capabilities: { logging: {} } }
+  { name: 'DocumentMCP', version: '1.0.0' },
+  { capabilities: { logging: {} } },
 );
 
 // Checks whether a filesystem path falls within one of the client's roots.
@@ -31,29 +36,32 @@ async function isPathAllowed(requestedPath: string): Promise<boolean> {
   return roots.some((root) => {
     const rootPath = path.resolve(fileURLToPath(root.uri));
     const relative = path.relative(rootPath, resolvedDir);
-    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+    return (
+      relative === '' ||
+      (!relative.startsWith('..') && !path.isAbsolute(relative))
+    );
   });
 }
 
 const docs: Record<string, string> = {
-  "deposition.md": "This deposition covers the testimony of Angela Smith, P.E.",
-  "report.pdf": "The report details the state of a 20m condenser tower.",
-  "financials.docx":
+  'deposition.md': 'This deposition covers the testimony of Angela Smith, P.E.',
+  'report.pdf': 'The report details the state of a 20m condenser tower.',
+  'financials.docx':
     "These financials outline the project's budget and expenditures.",
-  "outlook.pdf":
-    "This document presents the projected future performance of the system.",
-  "plan.md": "The plan outlines the steps for the project's implementation.",
-  "spec.txt":
-    "These specifications define the technical requirements for the equipment.",
+  'outlook.pdf':
+    'This document presents the projected future performance of the system.',
+  'plan.md': "The plan outlines the steps for the project's implementation.",
+  'spec.txt':
+    'These specifications define the technical requirements for the equipment.',
 };
 
 // Tool to read documents:
 mcp.registerTool(
-  "read_document",
+  'read_document',
   {
     description: "Read a document's contents by id",
     inputSchema: {
-      doc_id: z.string().describe("Id of the document to read"),
+      doc_id: z.string().describe('Id of the document to read'),
     },
   },
   async ({ doc_id }, extra) => {
@@ -67,26 +75,26 @@ mcp.registerTool(
     }
 
     await ctx.reportProgress(100, 100);
-    return { content: [{ type: "text", text: docs[doc_id] }] };
-  }
+    return { content: [{ type: 'text', text: docs[doc_id] }] };
+  },
 );
 
 // Tool to write documents:
 mcp.registerTool(
-  "edit_document",
+  'edit_document',
   {
     description:
-      "Edit a document by replacing a string in the document content with a new string",
+      'Edit a document by replacing a string in the document content with a new string',
     inputSchema: {
-      doc_id: z.string().describe("Id of the document that will be edited"),
+      doc_id: z.string().describe('Id of the document that will be edited'),
       old_str: z
         .string()
         .describe(
-          "The text to replace. Must match exactly, including whitespace"
+          'The text to replace. Must match exactly, including whitespace',
         ),
       new_str: z
         .string()
-        .describe("The new text to insert in place of the old text"),
+        .describe('The new text to insert in place of the old text'),
     },
   },
   async ({ doc_id, old_str, new_str }, extra) => {
@@ -101,31 +109,31 @@ mcp.registerTool(
     docs[doc_id] = docs[doc_id].replace(old_str, new_str);
 
     await ctx.reportProgress(100, 100);
-    return { content: [{ type: "text", text: `Edited ${doc_id}` }] };
-  }
+    return { content: [{ type: 'text', text: `Edited ${doc_id}` }] };
+  },
 );
 
 // Resource to return list of documents:
 mcp.registerResource(
-  "list_docs",
-  "docs://documents",
-  { mimeType: "application/json" },
+  'list_docs',
+  'docs://documents',
+  { mimeType: 'application/json' },
   async (uri) => ({
     contents: [
       {
         uri: uri.href,
-        mimeType: "application/json",
+        mimeType: 'application/json',
         text: JSON.stringify(Object.keys(docs)),
       },
     ],
-  })
+  }),
 );
 
 // Resource to return content of document:
 mcp.registerResource(
-  "fetch_doc",
-  new ResourceTemplate("docs://documents/{doc_id}", { list: undefined }),
-  { mimeType: "text/plain" },
+  'fetch_doc',
+  new ResourceTemplate('docs://documents/{doc_id}', { list: undefined }),
+  { mimeType: 'text/plain' },
   async (uri, variables) => {
     const doc_id = Array.isArray(variables.doc_id)
       ? variables.doc_id[0]
@@ -139,21 +147,21 @@ mcp.registerResource(
       contents: [
         {
           uri: uri.href,
-          mimeType: "text/plain",
+          mimeType: 'text/plain',
           text: docs[doc_id],
         },
       ],
     };
-  }
+  },
 );
 
 // Prompt to rewrite a doc in markdown format:
 mcp.registerPrompt(
-  "format",
+  'format',
   {
-    description: "Rewrites the contents of the document in Markdown format",
+    description: 'Rewrites the contents of the document in Markdown format',
     argsSchema: {
-      doc_id: z.string().describe("Id of the document to format"),
+      doc_id: z.string().describe('Id of the document to format'),
     },
   },
   ({ doc_id }) => {
@@ -171,29 +179,29 @@ mcp.registerPrompt(
     return {
       messages: [
         {
-          role: "user",
-          content: { type: "text", text: prompt },
+          role: 'user',
+          content: { type: 'text', text: prompt },
         },
       ],
     };
-  }
+  },
 );
 
 // Tool to summarize arbitrary text via sampling (the server asks the
 // connected client's LLM to do the work). Equivalent to `summarize` in
 // `mcp_server.py`.
 mcp.registerTool(
-  "summarize",
+  'summarize',
   {
     description: "Summarize the provided text using the client's LLM",
     inputSchema: {
-      text_to_summarize: z.string().describe("The text to summarize"),
+      text_to_summarize: z.string().describe('The text to summarize'),
     },
   },
   async ({ text_to_summarize }, extra) => {
     const ctx = makeToolContext(mcp, extra);
 
-    await ctx.info("Preparing to summarize...");
+    await ctx.info('Preparing to summarize...');
     await ctx.reportProgress(20, 100);
 
     const prompt = `
@@ -202,61 +210,86 @@ mcp.registerTool(
     `;
 
     const result = await mcp.server.createMessage({
-      messages: [{ role: "user", content: { type: "text", text: prompt } }],
+      messages: [{ role: 'user', content: { type: 'text', text: prompt } }],
       maxTokens: 4000,
-      systemPrompt: "You are a helpful research assistant.",
+      systemPrompt: 'You are a helpful research assistant.',
     });
 
-    await ctx.info("Summary received");
+    await ctx.info('Summary received');
     await ctx.reportProgress(90, 100);
 
-    if (result.content.type !== "text") {
-      throw new Error("Sampling failed");
+    if (result.content.type !== 'text') {
+      throw new Error('Sampling failed');
     }
 
     await ctx.reportProgress(100, 100);
-    return { content: [{ type: "text", text: result.content.text }] };
-  }
+    return { content: [{ type: 'text', text: result.content.text }] };
+  },
 );
 
 // Tool to list the directories the client exposes as roots:
 mcp.registerTool(
-  "list_roots",
+  'list_roots',
   {
     description:
-      "List all directories that are accessible to this server. These are the root directories where files can be read from or written to.",
+      'List all directories that are accessible to this server. These are the root directories where files can be read from or written to.',
   },
   async () => {
     const { roots } = await mcp.server.listRoots();
     const paths = roots.map((root) => fileURLToPath(root.uri));
-    return { content: [{ type: "text", text: JSON.stringify(paths) }] };
-  }
+    return { content: [{ type: 'text', text: JSON.stringify(paths) }] };
+  },
 );
 
 // Tool to read a directory, restricted to the client's roots:
 mcp.registerTool(
-  "read_dir",
+  'read_dir',
   {
-    description: "Read directory contents. Path must be within one of the client's roots.",
+    description:
+      "Read directory contents. Path must be within one of the client's roots.",
     inputSchema: {
-      path: z.string().describe("Path to a directory to read"),
+      path: z.string().describe('Path to a directory to read'),
     },
   },
   async ({ path: dirPath }) => {
     const resolved = path.resolve(dirPath);
 
     if (!(await isPathAllowed(resolved))) {
-      throw new Error("Error: can only read directories within a root");
+      throw new Error('Error: can only read directories within a root');
     }
 
     const entries = fs.readdirSync(resolved);
-    return { content: [{ type: "text", text: JSON.stringify(entries) }] };
-  }
+    return { content: [{ type: 'text', text: JSON.stringify(entries) }] };
+  },
 );
 
 async function main() {
-  const transport = new StdioServerTransport();
-  await mcp.connect(transport);
+  // --- STDIO transport (default) ---
+  // const transport = new StdioServerTransport();
+  // await mcp.connect(transport);
+
+  // --- STREAMABLE HTTP transport ---
+  // Comment out the two lines above and uncomment the block below to switch.
+  // Server will listen at http://127.0.0.1:3000/mcp
+  // Keeps one session for simplicity (single local client). If you restart
+  // the client, restart this server too — it doesn't accept a second
+  // "initialize" once a session already exists.
+  let httpTransport: StreamableHTTPServerTransport | undefined;
+  const httpServer = createServer(async (req, res) => {
+    if (!httpTransport) {
+      httpTransport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+      });
+      httpTransport.onclose = () => {
+        httpTransport = undefined;
+      };
+      await mcp.connect(httpTransport);
+    }
+    await httpTransport.handleRequest(req, res);
+  });
+  httpServer.listen(3000, () => {
+    console.log('MCP server listening on http://127.0.0.1:3000/mcp');
+  });
 }
 
 main().catch((error) => {

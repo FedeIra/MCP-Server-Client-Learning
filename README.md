@@ -32,6 +32,30 @@ A command-line chat that connects Claude to documents exposed by an MCP server:
 
 The client launches the MCP server as a subprocess and talks to it over **stdio**.
 
+## Transport: stdio vs. streamable HTTP
+
+Both versions default to **stdio** (client spawns the server as a subprocess).
+Each has the code for **streamable HTTP** included but commented out, so you
+can switch by commenting/uncommenting a few blocks — no new dependencies
+needed:
+
+- **Python**: toggle in `python/mcp_server.py` (`mcp.run(...)`) and
+  `python/mcp_client.py` (`connect()`).
+- **TypeScript**: toggle in `typescript/src/mcpServer.ts` (`main()`) and
+  `typescript/src/mcpClient.ts` (`connect()`).
+
+You must flip **both** server and client to the same transport — a stdio
+client can't talk to an HTTP server or vice versa.
+
+| | stdio | streamable HTTP |
+|---|---|---|
+| **Pros** | Simple, zero network config, no port to expose, process lifecycle handled for you | Server runs independently (long-lived, remote-reachable), one server can serve multiple clients, easier to put behind auth/proxies/load balancers |
+| **Cons** | Server only reachable by the process that spawned it, no concurrent clients | Needs a host/port, more moving parts (HTTP server, sessions), overkill for local single-user use |
+
+Rule of thumb: keep **stdio** for local/CLI tools like this one; reach for
+**streamable HTTP** when the server needs to run as its own service or be
+shared across clients/machines.
+
 ## Quick start
 
 Pick a language and follow its README. In short:

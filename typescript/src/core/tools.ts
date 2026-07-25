@@ -29,6 +29,13 @@ export class ToolManager {
   }
 
   // Finds the first client that has the specified tool.
+  //
+  // Name-collision caveat (Lesson 6): if two connected servers both expose a
+  // tool called e.g. "search", this returns whichever client's list_tools()
+  // happens to contain it first — the other server's "search" becomes
+  // unreachable. This project doesn't disambiguate; a common real-world fix
+  // is to expose tools to the LLM as "<serverName>__<toolName>" and strip the
+  // prefix back off here before calling the underlying client.
   private static async findClientWithTool(
     clients: MCPClient[],
     toolName: string
