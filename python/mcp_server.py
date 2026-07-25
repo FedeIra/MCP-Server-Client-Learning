@@ -180,4 +180,10 @@ async def read_dir(
 
 
 if __name__ == "__main__":
+    # --- STDIO transport (default) ---
     mcp.run(transport="stdio")
+
+    # --- STREAMABLE HTTP transport ---
+    # Comment out the stdio line above and uncomment the line below to switch.
+    # Server will listen at http://127.0.0.1:8000/mcp
+    # mcp.run(transport="streamable-http", host="127.0.0.1", port=8000)

@@ -8,6 +8,9 @@ from contextlib import AsyncExitStack
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.session import LoggingFnT, SamplingFnT
 from mcp.client.stdio import stdio_client
+# --- STREAMABLE HTTP transport ---
+# Uncomment to switch (also comment out the "from mcp.client.stdio import stdio_client" line above).
+# from mcp.client.streamable_http import streamablehttp_client
 from mcp.shared.context import RequestContext
 from mcp.shared.session import ProgressFnT
 from mcp.types import ErrorData, ListRootsResult, Root
@@ -48,6 +51,7 @@ class MCPClient:
         return ListRootsResult(roots=self._roots)
 
     async def connect(self):
+        # --- STDIO transport (default) ---
         server_params = StdioServerParameters(
             command=self._command,
             args=self._args,
@@ -56,10 +60,20 @@ class MCPClient:
         stdio_transport = await self._exit_stack.enter_async_context(
             stdio_client(server_params)
         )
-        _stdio, _write = stdio_transport
+        _read, _write = stdio_transport
+
+        # --- STREAMABLE HTTP transport ---
+        # Comment out the stdio block above and uncomment the block below to switch.
+        # Requires the server to be running with `mcp.run(transport="streamable-http", ...)`
+        # (see mcp_server.py) and reachable at this URL.
+        # http_transport = await self._exit_stack.enter_async_context(
+        #     streamablehttp_client("http://127.0.0.1:8000/mcp")
+        # )
+        # _read, _write, _get_session_id = http_transport
+
         self._session = await self._exit_stack.enter_async_context(
             ClientSession(
-                _stdio,
+                _read,
                 _write,
                 sampling_callback=self._sampling_callback,
                 logging_callback=self._logging_callback,

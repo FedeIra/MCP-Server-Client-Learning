@@ -76,6 +76,22 @@ async function main() {
     clients[clientId] = client;
   }
 
+  // --- ALTERNATIVE: load servers from server_config.json (Lesson 6 style) ---
+  // Instead of passing extra server scripts as CLI args one by one, you can
+  // list every server you want (your own, plus reference/official ones like
+  // "filesystem" or "fetch") in one JSON file and connect to all of them at
+  // once, concurrently. See serverConfig.ts. Uncomment to use instead of (or
+  // together with) the CLI-args loop above:
+  //
+  // import { loadClientsFromConfig } from "./serverConfig.js";
+  // const configPath = fileURLToPath(new URL("../server_config.json", import.meta.url));
+  // const configClients = await loadClientsFromConfig(configPath, samplingHandler, loggingHandler, rootPaths);
+  // Object.assign(clients, configClients);
+  //
+  // Note: "filesystem" and "fetch" are official reference servers published
+  // as npm/PyPI packages. `npx`/`uvx` install and run them on the fly — you
+  // don't need to have them installed ahead of time.
+
   const chat = new CliChat(docClient, clients, claudeService);
   const cli = new CliApp(chat);
 
