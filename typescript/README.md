@@ -110,6 +110,27 @@ use `...\AppData\Local\Packages\Claude_<id>\LocalCache\Roaming\Claude\claude_des
 }
 ```
 
+This works as-is **only while `MCP_AUTH_TOKEN` is unset** on the server (the
+default — see [Deploying the server remotely](#deploying-the-server-remotely-aws-app-runner)
+below). If you start the server with `MCP_AUTH_TOKEN` set, every request
+needs an `Authorization: Bearer <token>` header, so add it via `mcp-remote`'s
+`--header` flag instead:
+
+```json
+{
+  "mcpServers": {
+    "document-mcp": {
+      "command": "npx",
+      "args": [
+        "-y", "mcp-remote", "http://127.0.0.1:3000/mcp",
+        "--header", "Authorization: Bearer ${AUTH_TOKEN}"
+      ],
+      "env": { "AUTH_TOKEN": "<same value as the server's MCP_AUTH_TOKEN>" }
+    }
+  }
+}
+```
+
 Save the file, then **fully quit and reopen Claude Desktop** (check the
 system tray, not just the window) so it picks up the new server entry. You
 should see `document-mcp` listed as running under the Developer section, and
@@ -169,10 +190,23 @@ Runner's health checks.
 4. In Claude Desktop, this being a real HTTPS URL means you likely **don't
    need the `mcp-remote` bridge** from the local setup above — try
    Settings → Connectors → Add custom connector with that URL directly first.
-   If Claude Desktop requires bearer-token auth to be passed as an OAuth
-   flow rather than a raw header, you may still need `mcp-remote` as the
-   bridge, passing the token via its `--header` option — check
-   `npx mcp-remote --help` for the current flags.
+   If that path doesn't accept a bearer token, fall back to the same
+   `mcp-remote` + `--header` config from step 2 above, just pointing at the
+   App Runner URL instead of `127.0.0.1`:
+   ```json
+   {
+     "mcpServers": {
+       "document-mcp": {
+         "command": "npx",
+         "args": [
+           "-y", "mcp-remote", "https://xxxx.<region>.awsapprunner.com/mcp",
+           "--header", "Authorization: Bearer ${AUTH_TOKEN}"
+         ],
+         "env": { "AUTH_TOKEN": "<the MCP_AUTH_TOKEN you set on the App Runner service>" }
+       }
+     }
+   }
+   ```
 
 ## Project structure
 
