@@ -131,6 +131,49 @@ conversation.
   connect — it won't launch it for you (that's `mcp-remote`'s job, and all
   `mcp-remote` does is proxy to whatever URL you gave it).
 
+## Deploying the server remotely (AWS App Runner)
+
+`Dockerfile` (in this folder) packages **only** `src/mcpServer.ts` — the
+document MCP server — for remote deployment; it does not include the CLI
+chat client. It runs the server via the `tsx` loader (same as `npm run dev`
+locally) rather than a `tsc` build, so unrelated TODO/type-error files
+elsewhere in `src/` (e.g. `cliChat.ts`) can't block building just the server.
+
+The image reads two env vars at runtime:
+
+| Var | Default | Purpose |
+|---|---|---|
+| `PORT` | `3000` | Port the server listens on (App Runner sets this itself, but you can override it in the service config). |
+| `MCP_AUTH_TOKEN` | unset (no auth) | If set, every request must send `Authorization: Bearer <token>`. **Set this before deploying** — the server has no other access control, and App Runner gives it a public URL. |
+
+It also exposes `GET /health` (no auth required) returning `200 ok`, for App
+Runner's health checks.
+
+### Steps to actually deploy (not yet done in this repo)
+
+1. **Build & push the image to ECR:**
+   ```bash
+   aws ecr create-repository --repository-name mcp-document-server
+   aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account-id>.dkr.ecr.<region>.amazonaws.com
+
+   docker build -t mcp-document-server .
+   docker tag mcp-document-server:latest <account-id>.dkr.ecr.<region>.amazonaws.com/mcp-document-server:latest
+   docker push <account-id>.dkr.ecr.<region>.amazonaws.com/mcp-document-server:latest
+   ```
+2. **Create the App Runner service**, pointing it at that ECR image:
+   - Port: `3000` (or whatever `PORT` you configure).
+   - Health check path: `/health`.
+   - Env vars: set `MCP_AUTH_TOKEN` to a strong random value.
+3. App Runner gives you an HTTPS URL like `https://xxxx.<region>.awsapprunner.com`.
+   Your MCP endpoint is `https://xxxx.<region>.awsapprunner.com/mcp`.
+4. In Claude Desktop, this being a real HTTPS URL means you likely **don't
+   need the `mcp-remote` bridge** from the local setup above — try
+   Settings → Connectors → Add custom connector with that URL directly first.
+   If Claude Desktop requires bearer-token auth to be passed as an OAuth
+   flow rather than a raw header, you may still need `mcp-remote` as the
+   bridge, passing the token via its `--header` option — check
+   `npx mcp-remote --help` for the current flags.
+
 ## Project structure
 
 | File | Python equivalent | Role |

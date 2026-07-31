@@ -307,6 +307,17 @@ function sendJsonRpcError(
   res.end(JSON.stringify({ jsonrpc: '2.0', error: { code, message }, id: null }));
 }
 
+// Bearer-token gate for when this server is reachable over the public
+// internet (e.g. deployed on AWS App Runner). Only enforced when
+// MCP_AUTH_TOKEN is set, so local/dev use without it is unaffected.
+const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN;
+
+function isAuthorized(req: IncomingMessage): boolean {
+  if (!AUTH_TOKEN) return true;
+  const header = req.headers.authorization;
+  return header === `Bearer ${AUTH_TOKEN}`;
+}
+
 async function main() {
   // --- STDIO transport (default) ---
   // const transport = new StdioServerTransport();
@@ -329,6 +340,18 @@ async function main() {
 
   const httpServer = createServer(async (req, res) => {
     try {
+      // Health check for AWS App Runner / load balancers — deliberately
+      // unauthenticated and outside the MCP session logic below.
+      if (req.url === '/health') {
+        res.writeHead(200, { 'Content-Type': 'text/plain' }).end('ok');
+        return;
+      }
+
+      if (!isAuthorized(req)) {
+        sendJsonRpcError(res, 401, -32001, 'Unauthorized');
+        return;
+      }
+
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
       if (sessionId && transports[sessionId]) {
@@ -374,8 +397,10 @@ async function main() {
     }
   });
 
-  httpServer.listen(3000, () => {
-    console.log('MCP server listening on http://127.0.0.1:3000/mcp');
+  const PORT = Number(process.env.PORT) || 3000;
+  const HOST = '0.0.0.0';
+  httpServer.listen(PORT, HOST, () => {
+    console.log(`MCP server listening on http://${HOST}:${PORT}/mcp`);
   });
 }
 
