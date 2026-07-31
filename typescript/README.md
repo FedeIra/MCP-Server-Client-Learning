@@ -61,6 +61,76 @@ so it works on Windows without any PATH configuration.
 > in `src/mcpServer.ts` and `src/mcpClient.ts` are implemented (same as Python).
 > Plain chat works out of the box.
 
+## Connecting to Claude Desktop (streamable HTTP)
+
+`src/mcpServer.ts` defaults to the **streamable HTTP** transport (see the
+toggle comments at the top of the file / in `main()` to switch back to
+stdio). This lets you run the server standalone and attach it to Claude
+Desktop as an MCP connector, instead of it only being spawned as a subprocess
+by this project's own CLI client.
+
+### 1. Run the server locally
+
+From this `typescript/` folder:
+
+```bash
+node --import tsx src/mcpServer.ts
+```
+
+Do **not** use `npm run dev` for this — that command runs `src/main.ts`, the
+full chat CLI client (which itself tries to connect to a server), not the
+server on its own. You should see:
+
+```
+MCP server listening on http://127.0.0.1:3000/mcp
+```
+
+Leave this running in its own terminal for as long as you want Claude
+Desktop to be able to reach it.
+
+### 2. Point Claude Desktop at it
+
+Claude Desktop's `claude_desktop_config.json` only knows how to launch
+**stdio** servers directly (`command` / `args`), so to reach a server running
+over HTTP you need a small stdio↔HTTP bridge: the [`mcp-remote`](https://www.npmjs.com/package/mcp-remote)
+package. Add this to your `claude_desktop_config.json` (find it via Claude
+Desktop's **Developer** settings section, which opens the file directly — the
+path varies by install: the classic location is
+`%APPDATA%\Claude\claude_desktop_config.json`, while Microsoft Store installs
+use `...\AppData\Local\Packages\Claude_<id>\LocalCache\Roaming\Claude\claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "document-mcp": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://127.0.0.1:3000/mcp"]
+    }
+  }
+}
+```
+
+Save the file, then **fully quit and reopen Claude Desktop** (check the
+system tray, not just the window) so it picks up the new server entry. You
+should see `document-mcp` listed as running under the Developer section, and
+its tools (`read_document`, `edit_document`, etc.) available in a new
+conversation.
+
+### Notes / troubleshooting
+
+- The server keeps a separate `McpServer` + session per HTTP connection
+  (keyed by the `Mcp-Session-Id` header), so it's fine for Claude Desktop to
+  reconnect (new conversation, app restart) without you having to restart the
+  Node process — this was specifically fixed because clients like
+  `mcp-remote` don't reliably send a session-termination `DELETE` before
+  their process exits.
+- If Claude Desktop shows **"Could not attach to MCP server document-mcp"**,
+  check `logs/mcp-server-document-mcp.log` next to your
+  `claude_desktop_config.json` for the actual error from `mcp-remote`.
+- The Node server process has to be running *before* Claude Desktop tries to
+  connect — it won't launch it for you (that's `mcp-remote`'s job, and all
+  `mcp-remote` does is proxy to whatever URL you gave it).
+
 ## Project structure
 
 | File | Python equivalent | Role |
