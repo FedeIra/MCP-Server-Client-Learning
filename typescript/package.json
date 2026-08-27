@@ -2,6 +2,12 @@
   "name": "mcp-chat-ts",
   "version": "0.1.0",
   "description": "MCP Chat CLI (TypeScript port) - parallel to the Python project",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FedeIra/MCP-Server-Client-Learning.git",
+    "directory": "typescript"
+  },
   "type": "module",
   "scripts": {
     "dev": "tsx src/main.ts",

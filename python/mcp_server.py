@@ -91,7 +91,6 @@ def list_docs() -> list[str]:
     return list(docs.keys())
 
 # Resource to return content of document:
-# TODO: Write a resource to return the contents of a particular doc
 @mcp.resource(
     "docs://documents/{doc_id}",
     mime_type="text/plain"
@@ -123,7 +122,8 @@ def format_document(
     return [base.UserMessage(prompt)]
 
 
-# TODO: Write a prompt to summarize a doc
+# Tool to summarize arbitrary text via sampling (asks the connected client's
+# LLM to do the work, rather than the server's own model):
 @mcp.tool()
 async def summarize(text_to_summarize: str, ctx: Context):
     await ctx.info("Preparing to summarize...")

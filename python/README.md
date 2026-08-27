@@ -1,6 +1,6 @@
 # MCP Chat
 
-MCP Chat is a command-line interface application that enables interactive chat capabilities with AI models through the Anthropic API. The application supports document retrieval, command-based prompts, and extensible tool integrations via the MCP (Model Control Protocol) architecture.
+MCP Chat is a command-line interface application that enables interactive chat capabilities with AI models through the Anthropic API. The application supports document retrieval, command-based prompts, and extensible tool integrations via the MCP (Model Context Protocol) architecture.
 
 > This is the **Python** version. A parallel **TypeScript** port lives in [`../typescript`](../typescript). See the [repository root README](../README.md) for an overview of both.
 >
@@ -102,13 +102,6 @@ Commands will auto-complete when you press Tab.
 ### Adding New Documents
 
 Edit the `mcp_server.py` file to add new documents to the `docs` dictionary.
-
-### Implementing MCP Features
-
-To fully implement the MCP features:
-
-1. Complete the TODOs in `mcp_server.py`
-2. Implement the missing functionality in `mcp_client.py`
 
 ### Linting and Typing Check
 
