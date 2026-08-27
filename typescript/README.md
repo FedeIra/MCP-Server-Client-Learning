@@ -5,8 +5,11 @@ command-line chat application that connects Claude (via the Anthropic API) to
 documents exposed by an MCP server, using the **official MCP TypeScript SDK**
 (`@modelcontextprotocol/sdk`) — no higher-level framework.
 
-This is a **1:1 mirror** of the Python version, including the same unfinished
-`TODO`s, so you can learn MCP by implementing them in both languages.
+It implements the same MCP document tools/resources/prompts as the Python
+version, but the two are **not** a 1:1 mirror: this TypeScript version also
+adds production deployment support for the server (streamable HTTP by
+default, bearer-token auth, multi-session handling, a `/health` endpoint,
+and a `Dockerfile` for AWS App Runner) that the Python version doesn't have.
 
 ## Prerequisites
 
@@ -55,11 +58,7 @@ so it works on Windows without any PATH configuration.
 
 - **Chat:** type a message and press Enter.
 - **Document retrieval:** `@` + a document id (e.g. `@deposition.md`).
-- **Commands:** `/` + a server-defined command (e.g. `/summarize deposition.md`).
-
-> Note: `@` / `/` features only produce results once the corresponding `TODO`s
-> in `src/mcpServer.ts` and `src/mcpClient.ts` are implemented (same as Python).
-> Plain chat works out of the box.
+- **Commands:** `/` + a server-defined command (e.g. `/format deposition.md`).
 
 ## Connecting to Claude Desktop (streamable HTTP)
 
@@ -157,8 +156,8 @@ conversation.
 `Dockerfile` (in this folder) packages **only** `src/mcpServer.ts` — the
 document MCP server — for remote deployment; it does not include the CLI
 chat client. It runs the server via the `tsx` loader (same as `npm run dev`
-locally) rather than a `tsc` build, so unrelated TODO/type-error files
-elsewhere in `src/` (e.g. `cliChat.ts`) can't block building just the server.
+locally) rather than a `tsc` build, so a type error in an unrelated file
+elsewhere in `src/` can't block building just the server.
 
 The image reads two env vars at runtime:
 
@@ -213,8 +212,8 @@ Runner's health checks.
 | File | Python equivalent | Role |
 |---|---|---|
 | `src/main.ts` | `main.py` | Entry point: loads `.env`, wires everything, runs the CLI. |
-| `src/mcpServer.ts` | `mcp_server.py` | The MCP server (documents + `TODO`s). |
-| `src/mcpClient.ts` | `mcp_client.py` | The MCP client wrapper (+ `TODO`s). |
+| `src/mcpServer.ts` | `mcp_server.py` | The MCP server (documents, tools, resources, prompts). |
+| `src/mcpClient.ts` | `mcp_client.py` | The MCP client wrapper. |
 | `src/core/claude.ts` | `core/claude.py` | Anthropic API wrapper. |
 | `src/core/chat.ts` | `core/chat.py` | The agent loop. |
 | `src/core/cliChat.ts` | `core/cli_chat.py` | `@document` / `/command` handling. |
@@ -227,15 +226,3 @@ The Python version uses `prompt-toolkit` for `@` / `/` popup autocompletion.
 To keep this port dependency-free (SDKs only), the TypeScript CLI uses Node's
 built-in `readline`. Typing `@doc` / `/command` still works; only the
 autocompletion popup would require an extra library.
-
-## TODOs (the learning exercise)
-
-Implement these in `src/mcpServer.ts` (with `registerTool` / `registerResource`
-/ `registerPrompt`) and wire them up in `src/mcpClient.ts`:
-
-1. A tool to read a doc
-2. A tool to edit a doc
-3. A resource to return all doc ids
-4. A resource to return the contents of a particular doc
-5. A prompt to rewrite a doc in markdown format
-6. A prompt to summarize a doc

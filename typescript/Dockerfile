@@ -3,10 +3,9 @@
 # chat client (src/main.ts), which is meant to run locally.
 #
 # Runs via the tsx loader (same as `npm run dev` locally) rather than a
-# `tsc` build: `tsc` compiles the whole `src/` tree together, and
-# unimplemented-TODO files elsewhere in the project (e.g. cliChat.ts) can
-# have type errors unrelated to the server — that shouldn't block deploying
-# just the server.
+# `tsc` build: `tsc` compiles the whole `src/` tree together, and a type
+# error in an unrelated file elsewhere in `src/` (e.g. the CLI client)
+# shouldn't block deploying just the server.
 
 FROM node:22-slim
 WORKDIR /app

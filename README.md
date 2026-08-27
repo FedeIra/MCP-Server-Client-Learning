@@ -1,19 +1,25 @@
-# MCP Server & Client — Learning
+# MCP Server & Client
 
-A learning project that implements the **same** MCP (Model Context Protocol) chat
-application in two languages, side by side, using each language's **official MCP
-SDK** (no higher-level framework). The goal is to learn MCP by building — and
-comparing — the same design in both ecosystems.
+The same MCP (Model Context Protocol) document-chat application, implemented
+side by side in Python and TypeScript, each using that language's **official
+MCP SDK** (no higher-level framework). Both are command-line chat clients
+that connect Claude to a small set of documents exposed through an MCP
+server (tools to read/edit documents, resources to list/fetch them, prompts
+to reformat or summarize them).
 
-Both versions are intentionally left with the same unfinished `TODO`s, so you can
-implement the MCP tools / resources / prompts yourself in each language.
+The TypeScript version also ships a production-shaped deployment path for
+the server: streamable HTTP by default, bearer-token auth, multi-session
+support, a health endpoint, and a Dockerfile for AWS App Runner. See
+[Running the server in production](#running-the-server-in-production-typescript)
+below.
 
 ## Structure
 
 ```
 .
 ├── python/       # Python version  (mcp SDK + anthropic, managed with uv)
-└── typescript/   # TypeScript port (@modelcontextprotocol/sdk + @anthropic-ai/sdk)
+├── typescript/   # TypeScript port (@modelcontextprotocol/sdk + @anthropic-ai/sdk)
+└── docs/         # Notes on the MCP primitives (tools / resources / prompts) used here
 ```
 
 Each folder is a self-contained project with its own dependencies, its own `.env`,
@@ -30,59 +36,68 @@ A command-line chat that connects Claude to documents exposed by an MCP server:
 - **`@document`** — include a document's contents in your query.
 - **`/command`** — run a prompt defined by the MCP server.
 
-The client launches the MCP server as a subprocess and talks to it over **stdio**.
-
 ## Transport: stdio vs. streamable HTTP
 
-Both versions default to **stdio** (client spawns the server as a subprocess).
-Each has the code for **streamable HTTP** included but commented out, so you
-can switch by commenting/uncommenting a few blocks — no new dependencies
-needed:
+The two versions default to **different** transports:
 
-- **Python**: toggle in `python/mcp_server.py` (`mcp.run(...)`) and
-  `python/mcp_client.py` (`connect()`).
-- **TypeScript**: toggle in `typescript/src/mcpServer.ts` (`main()`) and
-  `typescript/src/mcpClient.ts` (`connect()`).
+- **Python** defaults to **stdio** — the client spawns `mcp_server.py` as a
+  subprocess. The streamable HTTP block is present in `mcp_server.py` /
+  `mcp_client.py` but commented out; toggle it to switch.
+- **TypeScript** defaults to **streamable HTTP** — `mcpServer.ts` runs as an
+  independent HTTP server (`http://127.0.0.1:3000/mcp` locally), and
+  `mcpClient.ts` connects to it that way. The commented-out stdio block is
+  still there if you want the client to spawn the server as a subprocess
+  instead; see the toggle comments at the top of both files.
 
 You must flip **both** server and client to the same transport — a stdio
 client can't talk to an HTTP server or vice versa.
 
 | | stdio | streamable HTTP |
 |---|---|---|
-| **Pros** | Simple, zero network config, no port to expose, process lifecycle handled for you | Server runs independently (long-lived, remote-reachable), one server can serve multiple clients, easier to put behind auth/proxies/load balancers |
-| **Cons** | Server only reachable by the process that spawned it, no concurrent clients | Needs a host/port, more moving parts (HTTP server, sessions), overkill for local single-user use |
+| **Pros** | Simple, zero network config, no port to expose, process lifecycle handled for you | Server runs independently (long-lived, remote-reachable), one server can serve multiple clients/sessions, easier to put behind auth/proxies/load balancers |
+| **Cons** | Server only reachable by the process that spawned it, no concurrent clients | Needs a host/port, more moving parts (HTTP server, sessions) |
 
-Rule of thumb: keep **stdio** for local/CLI tools like this one; reach for
-**streamable HTTP** when the server needs to run as its own service or be
-shared across clients/machines.
+## Running the server in production (TypeScript)
+
+The TypeScript server (`typescript/src/mcpServer.ts`) is built to run as a
+standalone, remotely-reachable service rather than only as a subprocess of
+the CLI client:
+
+- **Streamable HTTP by default**, with one `McpServer` + session per HTTP
+  connection (keyed by the `Mcp-Session-Id` header), so multiple clients —
+  or the same client reconnecting — don't wedge the server.
+- **Bearer-token auth** via `MCP_AUTH_TOKEN`: when set, every request must
+  send `Authorization: Bearer <token>`; unset, the server is open (fine for
+  local use only).
+- **`GET /health`** — unauthenticated, for load balancer / App Runner health
+  checks.
+- **`Dockerfile`** (`typescript/Dockerfile`) — packages just the server (not
+  the CLI client) for deployment, e.g. to AWS App Runner.
+
+For the full walkthrough — running it locally, attaching it to Claude
+Desktop via `mcp-remote`, and deploying it to AWS App Runner — see
+[typescript/README.md § Deploying the server remotely](typescript/README.md#deploying-the-server-remotely-aws-app-runner).
+
+## MCP primitives used here
+
+`docs/README.md` explains how this project uses each of the three MCP
+primitives — tools, resources, and prompts — and when to reach for which:
+
+<p align="center">
+  <img src="docs/mcp%20primitives.png" alt="Tools are model-controlled, resources are app-controlled, prompts are user-controlled" width="720">
+</p>
+
+See [docs/README.md](docs/README.md) for the full explanation, and
+[docs/mcp flow.png](<docs/mcp flow.png>) for how a request flows through the
+client, the model, and the MCP server.
 
 ## Quick start
 
-Pick a language and follow its README. In short:
+Pick a language and follow its README's Setup section:
+[python/README.md](python/README.md#setup) or
+[typescript/README.md](typescript/README.md#setup). Both need an
+`ANTHROPIC_API_KEY` in their respective `.env` file.
 
-```bash
-# Python
-cd python
-uv venv
-.venv\Scripts\activate      # Windows PowerShell (use source .venv/bin/activate on macOS/Linux)
-uv pip install -e .
-uv run main.py
+## License
 
-# TypeScript
-cd typescript
-npm install
-npm run dev
-```
-
-Both need an `ANTHROPIC_API_KEY` in their respective `.env` file.
-
-## The learning exercise (shared TODOs)
-
-Implement, in each language:
-
-1. A tool to read a doc
-2. A tool to edit a doc
-3. A resource to return all doc ids
-4. A resource to return the contents of a particular doc
-5. A prompt to rewrite a doc in markdown format
-6. A prompt to summarize a doc
+[MIT](LICENSE)
