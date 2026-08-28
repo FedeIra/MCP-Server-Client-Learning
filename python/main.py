@@ -1,16 +1,16 @@
 import asyncio
-import sys
 import os
-from dotenv import load_dotenv
+import sys
 from contextlib import AsyncExitStack
 
-from mcp_client import MCPClient
-from core.claude import Claude
-from core.sampling import make_sampling_callback
-from core.observability import logging_callback
+from dotenv import load_dotenv
 
-from core.cli_chat import CliChat
+from core.claude import Claude
 from core.cli import CliApp
+from core.cli_chat import CliChat
+from core.observability import logging_callback
+from core.sampling import make_sampling_callback
+from mcp_client import MCPClient
 
 load_dotenv()
 

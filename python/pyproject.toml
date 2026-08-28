@@ -14,6 +14,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "mypy>=1.13.0",
     "ruff>=0.15.21",
 ]
 
@@ -23,3 +24,15 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
+
+# These prompt strings are kept byte-for-byte identical to their counterparts
+# in the TypeScript port (see ../typescript/src/core/cliChat.ts and
+# ../typescript/src/mcpServer.ts), so they're exempt from line-length rather
+# than reflowed out of sync with the other language.
+[tool.ruff.lint.per-file-ignores]
+"core/cli_chat.py" = ["E501"]
+"mcp_server.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true

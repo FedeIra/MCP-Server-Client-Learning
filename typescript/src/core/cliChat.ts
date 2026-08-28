@@ -23,11 +23,13 @@ export class CliChat extends Chat {
   }
 
   async listDocsIds(): Promise<string[]> {
-    return this.docClient.readResource("docs://documents");
+    // docs://documents resolves to a JSON array of document ids.
+    return (await this.docClient.readResource("docs://documents")) as string[];
   }
 
   async getDocContent(docId: string): Promise<string> {
-    return this.docClient.readResource(`docs://documents/${docId}`);
+    // docs://documents/{id} resolves to the raw text content of the document.
+    return (await this.docClient.readResource(`docs://documents/${docId}`)) as string;
   }
 
   async getPrompt(command: string, docId: string): Promise<PromptMessage[]> {
@@ -107,21 +109,32 @@ export function convertPromptMessageToMessageParam(
   promptMessage: PromptMessage
 ): MessageParam {
   const role = promptMessage.role === "user" ? "user" : "assistant";
-  const content = promptMessage.content as any;
+  const content: unknown = promptMessage.content;
 
   // Single content block with a "type" field.
-  if (content && typeof content === "object" && !Array.isArray(content)) {
-    if (content.type === "text") {
-      return { role, content: content.text ?? "" };
-    }
+  if (
+    content &&
+    typeof content === "object" &&
+    !Array.isArray(content) &&
+    "type" in content &&
+    content.type === "text" &&
+    "text" in content
+  ) {
+    return { role, content: String(content.text ?? "") };
   }
 
   // List of content blocks.
   if (Array.isArray(content)) {
     const textBlocks: { type: "text"; text: string }[] = [];
-    for (const item of content) {
-      if (item && typeof item === "object" && item.type === "text") {
-        textBlocks.push({ type: "text", text: item.text ?? "" });
+    for (const item of content as unknown[]) {
+      if (
+        item &&
+        typeof item === "object" &&
+        "type" in item &&
+        item.type === "text" &&
+        "text" in item
+      ) {
+        textBlocks.push({ type: "text", text: String(item.text ?? "") });
       }
     }
     if (textBlocks.length > 0) {

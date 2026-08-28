@@ -1,6 +1,7 @@
-from typing import List, Tuple
-from mcp.types import Prompt, PromptMessage
+from typing import List, Literal, Tuple
+
 from anthropic.types import MessageParam
+from mcp.types import Prompt, PromptMessage
 
 from core.chat import Chat
 from core.claude import Claude
@@ -82,7 +83,7 @@ class CliChat(Chat):
         Note the user's query might contain references to documents like "@report.docx". The "@" is only
         included as a way of mentioning the doc. The actual name of the document would be "report.docx".
         If the document content is included in this prompt, you don't need to use an additional tool to read the document.
-        Answer the user's question directly and concisely. Start with the exact information they need. 
+        Answer the user's question directly and concisely. Start with the exact information they need.
         Don't refer to or mention the provided context in any way - just use it to inform your answer.
         """
 
@@ -92,7 +93,9 @@ class CliChat(Chat):
 def convert_prompt_message_to_message_param(
     prompt_message: "PromptMessage",
 ) -> MessageParam:
-    role = "user" if prompt_message.role == "user" else "assistant"
+    role: Literal["user", "assistant"] = (
+        "user" if prompt_message.role == "user" else "assistant"
+    )
 
     content = prompt_message.content
 
