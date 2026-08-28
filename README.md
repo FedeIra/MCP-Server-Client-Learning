@@ -18,8 +18,7 @@ below.
 ```
 .
 ├── python/       # Python version  (mcp SDK + anthropic, managed with uv)
-├── typescript/   # TypeScript port (@modelcontextprotocol/sdk + @anthropic-ai/sdk)
-└── docs/         # Notes on the MCP primitives (tools / resources / prompts) used here
+└── typescript/   # TypeScript port (@modelcontextprotocol/sdk + @anthropic-ai/sdk)
 ```
 
 Each folder is a self-contained project with its own dependencies, its own `.env`,
@@ -77,19 +76,6 @@ the CLI client:
 For the full walkthrough — running it locally, attaching it to Claude
 Desktop via `mcp-remote`, and deploying it to AWS App Runner — see
 [typescript/README.md § Deploying the server remotely](typescript/README.md#deploying-the-server-remotely-aws-app-runner).
-
-## MCP primitives used here
-
-`docs/README.md` explains how this project uses each of the three MCP
-primitives — tools, resources, and prompts — and when to reach for which:
-
-<p align="center">
-  <img src="docs/mcp%20primitives.png" alt="Tools are model-controlled, resources are app-controlled, prompts are user-controlled" width="720">
-</p>
-
-See [docs/README.md](docs/README.md) for the full explanation, and
-[docs/mcp flow.png](<docs/mcp flow.png>) for how a request flows through the
-client, the model, and the MCP server.
 
 ## Quick start
 
