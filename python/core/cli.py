@@ -1,12 +1,14 @@
 from typing import List, Optional
+
+from mcp.types import Prompt
 from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
+from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.document import Document
+from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
-from prompt_toolkit.history import InMemoryHistory
-from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
-from prompt_toolkit.document import Document
-from prompt_toolkit.buffer import Buffer
 
 from core.cli_chat import CliChat
 
@@ -113,8 +115,8 @@ class UnifiedCompleter(Completer):
 class CliApp:
     def __init__(self, agent: CliChat):
         self.agent = agent
-        self.resources = []
-        self.prompts = []
+        self.resources: List[str] = []
+        self.prompts: List[Prompt] = []
 
         self.completer = UnifiedCompleter()
 
@@ -160,7 +162,7 @@ class CliApp:
                         buffer.start_completion(select_first=False)
 
         self.history = InMemoryHistory()
-        self.session = PromptSession(
+        self.session: PromptSession = PromptSession(
             completer=self.completer,
             history=self.history,
             key_bindings=self.kb,

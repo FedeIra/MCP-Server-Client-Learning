@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP, Context
-from pydantic import Field
+from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.fastmcp.prompts import base
 from mcp.types import SamplingMessage, TextContent
+from pydantic import Field
 
 from core.utils import file_url_to_path
 
@@ -68,7 +68,9 @@ async def read_document(
 async def edit_document(
     ctx: Context,
     doc_id: str = Field(description="Id of the document that will be edited"),
-    old_str: str = Field(description="The text to replace. Must match exactly, including whitespace"),
+    old_str: str = Field(
+        description="The text to replace. Must match exactly, including whitespace"
+    ),
     new_str: str = Field(description="The new text to insert in place of the old text"),
 ):
     await ctx.info(f"Editing document '{doc_id}'")

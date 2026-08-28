@@ -54,6 +54,16 @@ The client automatically launches the document MCP server (`src/mcpServer.ts`)
 as a subprocess over stdio, using the same Node binary with the `tsx` loader —
 so it works on Windows without any PATH configuration.
 
+### Linting and Type Checking
+
+This project uses [ESLint](https://eslint.org/) for linting and `tsc --noEmit`
+for type checking, both run in CI on every push/PR that touches this folder.
+
+```bash
+npm run typecheck
+npm run lint
+```
+
 ## Usage
 
 - **Chat:** type a message and press Enter.

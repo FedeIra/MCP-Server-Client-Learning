@@ -105,4 +105,9 @@ Edit the `mcp_server.py` file to add new documents to the `docs` dictionary.
 
 ### Linting and Typing Check
 
-There are no lint or type checks implemented.
+This project uses [ruff](https://docs.astral.sh/ruff/) for linting and [mypy](https://mypy-lang.org/) for type checking, both run in CI on every push/PR that touches this folder.
+
+```bash
+uv run ruff check .
+uv run mypy .
+```

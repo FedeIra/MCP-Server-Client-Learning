@@ -1,5 +1,8 @@
 # MCP Server & Client
 
+[![CI (TypeScript)](https://github.com/FedeIra/MCP-Server-Client-Reference/actions/workflows/ci-typescript.yml/badge.svg)](https://github.com/FedeIra/MCP-Server-Client-Reference/actions/workflows/ci-typescript.yml)
+[![CI (Python)](https://github.com/FedeIra/MCP-Server-Client-Reference/actions/workflows/ci-python.yml/badge.svg)](https://github.com/FedeIra/MCP-Server-Client-Reference/actions/workflows/ci-python.yml)
+
 The same MCP (Model Context Protocol) document-chat application, implemented
 side by side in Python and TypeScript, each using that language's **official
 MCP SDK** (no higher-level framework). Both are command-line chat clients

@@ -1,19 +1,21 @@
-import sys
 import asyncio
 import json
-from pathlib import Path
-from pydantic import AnyUrl, FileUrl
-from typing import Optional, Any
+import sys
 from contextlib import AsyncExitStack
+from pathlib import Path
+from typing import Any, Optional
+
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.session import LoggingFnT, SamplingFnT
 from mcp.client.stdio import stdio_client
+
 # --- STREAMABLE HTTP transport ---
 # Uncomment to switch (also comment out the "from mcp.client.stdio import stdio_client" line above).
 # from mcp.client.streamable_http import streamablehttp_client
 from mcp.shared.context import RequestContext
 from mcp.shared.session import ProgressFnT
 from mcp.types import ErrorData, ListRootsResult, Root
+from pydantic import AnyUrl, FileUrl
 
 
 class MCPClient:
@@ -87,7 +89,8 @@ class MCPClient:
     def session(self) -> ClientSession:
         if self._session is None:
             raise ConnectionError(
-                "Client session not initialized or cache not populated. Call connect_to_server first."
+                "Client session not initialized or cache not populated. "
+                "Call connect_to_server first."
             )
         return self._session
 
@@ -143,7 +146,7 @@ async def main():
         args=["run", "mcp_server.py"],
     ) as _client:
         result = await _client.list_tools()
-        print()
+        print(result)
 
 
 if __name__ == "__main__":

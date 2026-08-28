@@ -34,7 +34,7 @@ export class Claude {
 
   // If `message` is a full Anthropic Message, use its `.content`; otherwise
   // treat it as raw content (e.g. an array of tool_result blocks).
-  private contentOf(message: Message | unknown): any {
+  private contentOf(message: Message | unknown): MessageParam["content"] {
     if (
       message &&
       typeof message === "object" &&
@@ -43,7 +43,7 @@ export class Claude {
     ) {
       return (message as Message).content;
     }
-    return message;
+    return message as MessageParam["content"];
   }
 
   textFromMessage(message: Message): string {

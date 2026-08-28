@@ -1,22 +1,24 @@
 import json
-from typing import Optional, Literal, List
-from mcp.types import CallToolResult, Tool, TextContent
-from mcp_client import MCPClient
-from anthropic.types import Message, ToolResultBlockParam
+from typing import List, Literal, Optional
+
+from anthropic.types import Message, ToolParam, ToolResultBlockParam
+from mcp.types import CallToolResult, TextContent
+
 from core.observability import progress_callback
+from mcp_client import MCPClient
 
 
 class ToolManager:
     @classmethod
-    async def get_all_tools(cls, clients: dict[str, MCPClient]) -> list[Tool]:
+    async def get_all_tools(cls, clients: dict[str, MCPClient]) -> list[ToolParam]:
         """Gets all tools from the provided clients."""
-        tools = []
+        tools: list[ToolParam] = []
         for client in clients.values():
             tool_models = await client.list_tools()
             tools += [
                 {
                     "name": t.name,
-                    "description": t.description,
+                    "description": t.description or "",
                     "input_schema": t.inputSchema,
                 }
                 for t in tool_models

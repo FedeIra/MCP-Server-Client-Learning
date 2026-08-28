@@ -19,7 +19,7 @@ export class Chat {
   }
 
   async run(query: string): Promise<string> {
-    let finalTextResponse = "";
+    let finalTextResponse: string;
 
     await this.processQuery(query);
 
